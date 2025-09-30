@@ -11,7 +11,7 @@
 
 ---
 
-### 📖 About the Project
+### About the Project
 **BadgerPool** is a **ride-pooling web app built for the UW–Madison campus community**.  
 Think of it as a campus-scale Uber — connecting students who need rides with students who have cars, reducing costs and making transportation more sustainable.  
 
@@ -50,6 +50,7 @@ Think of it as a campus-scale Uber — connecting students who need rides with s
   <img src="docs/map.png" width="80%" />
   <img src="docs/create.png" width="80%" />
 </p>
+
 
 
 
