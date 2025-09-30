@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup, Polyline} from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import polyline from "@mapbox/polyline"; 
+
 
 // --- Landing ---
 function Landing() {
@@ -123,9 +128,9 @@ function FindRide() {
                 <p className="font-bold text-lg text-white">
                   {ride.origin} → {ride.destination}
                 </p>
-                <p className="text-gray-400">{ride.time}</p>
+                <p className="text-gray-400"> {ride.time}</p>
                 <p className="text-gray-400">{ride.driver}</p>
-                <p className="text-gray-400">Seats left: {ride.seats_left}</p>
+                <p className="text-gray-400"> Seats left: {ride.seats_left}</p>
               </div>
               <button
                 onClick={() => joinRide(ride.id)}
@@ -150,6 +155,7 @@ function CreateRide({ user }) {
     time: "",
     seats_left: 1,
   });
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -170,12 +176,13 @@ function CreateRide({ user }) {
       const data = await res.json();
 
       if (res.ok) {
-        setForm({ origin: "", destination: "", time: "", seats_left: 1 });
+        navigate("/myrides"); // redirect after success
       } else {
-        console.error(data.error || "Failed to create ride");
+        alert(data.error || "Failed to create ride");
       }
     } catch (err) {
       console.error("Error creating ride:", err);
+      alert("Something went wrong creating the ride.");
     }
   };
 
@@ -275,60 +282,176 @@ function MyRides({ user }) {
   );
 }
 
+// --- MapView ---
+function MapView() {
+  const [rides, setRides] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/rides/search")
+      .then((res) => res.json())
+      .then((data) => setRides(data))
+      .catch((err) => console.error("Error fetching rides:", err));
+  }, []);
+
+  // Custom icons
+  const originIcon = L.divIcon({
+    className: "custom-origin-icon",
+    html: `<div style="width:16px;height:16px;background:red;"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+
+  const destinationIcon = L.divIcon({
+    className: "custom-dest-icon",
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:red;"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+
+  return (
+    <div className="h-[80vh] w-full rounded-xl overflow-hidden shadow-lg">
+      <MapContainer
+        center={[43.0731, -89.4012]}
+        zoom={12}
+        className="h-full w-full"
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a> contributors'
+        />
+
+        {rides.map((ride) => {
+          if (
+            ride.origin_lat &&
+            ride.origin_lng &&
+            ride.destination_lat &&
+            ride.destination_lng
+          ) {
+            const origin = [ride.origin_lat, ride.origin_lng];
+            const destination = [ride.destination_lat, ride.destination_lng];
+
+            // decode polyline if available
+            let routeCoords = [];
+            if (ride.route_polyline) {
+              routeCoords = polyline.decode(ride.route_polyline).map((pt) => [
+                pt[0],
+                pt[1],
+              ]);
+            }
+
+            return (
+              <React.Fragment key={ride.id}>
+                {/* Origin marker (square) */}
+                <Marker position={origin} icon={originIcon}>
+                  <Popup>
+                    <strong>Origin:</strong> {ride.origin}
+                    <br />
+                    Driver: {ride.driver}
+                  </Popup>
+                </Marker>
+
+                {/* Destination marker (circle) */}
+                <Marker position={destination} icon={destinationIcon}>
+                  <Popup>
+                    <strong>Destination:</strong> {ride.destination}
+                    <br />
+                    Seats left: {ride.seats_left}
+                  </Popup>
+                </Marker>
+
+                {/* Route polyline */}
+                {routeCoords.length > 0 && (
+                  <Polyline
+                    positions={routeCoords}
+                    pathOptions={{ color: "red", weight: 4 }}
+                  />
+                )}
+              </React.Fragment>
+            );
+          }
+          return null;
+        })}
+      </MapContainer>
+    </div>
+  );
+}
+
+
+
 // --- App Wrapper ---
 export default function App() {
   const [user, setUser] = useState(localStorage.getItem("username") || "");
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       <nav className="bg-gray-800 shadow sticky top-0 z-10 p-4 flex gap-6">
-        <Link to="/" className="hover:text-red-500 transition">Home</Link>
-        <Link to="/rides" className="hover:text-red-500 transition">Find Rides</Link>
-        <Link to="/create" className="hover:text-red-500 transition">Create Ride</Link>
-        <Link to="/myrides" className="hover:text-red-500 transition">My Rides</Link>
-        <Link to="/login" className="ml-auto text-gray-400 hover:text-red-500 transition">
+        <Link to="/" className="hover:text-red-500 transition">
+          Home
+        </Link>
+        <Link to="/rides" className="hover:text-red-500 transition">
+          Find Rides
+        </Link>
+        <Link to="/create" className="hover:text-red-500 transition">
+          Create Ride
+        </Link>
+        <Link to="/myrides" className="hover:text-red-500 transition">
+          My Rides
+        </Link>
+        <Link to="/map" className="hover:text-red-500 transition">
+          Map
+        </Link>
+        <Link
+          to="/login"
+          className="ml-auto text-gray-400 hover:text-red-500 transition"
+        >
           {user ? `Logged in as ${user}` : "Login"}
         </Link>
       </nav>
-
-      <Routes>
-        {/* Landing: full screen, no main wrapper */}
-        <Route path="/" element={<Landing />} />
-
-        {/* Other pages wrapped in main container */}
-        <Route
-          path="/rides"
-          element={
-            <main className="max-w-3xl mx-auto p-6">
-              <FindRide />
-            </main>
-          }
-        />
-        <Route
-          path="/create"
-          element={
-            <main className="max-w-3xl mx-auto p-6">
-              <CreateRide user={user} />
-            </main>
-          }
-        />
-        <Route
-          path="/myrides"
-          element={
-            <main className="max-w-3xl mx-auto p-6">
-              <MyRides user={user} />
-            </main>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            <main className="max-w-3xl mx-auto p-6">
-              <Login setUser={setUser} />
-            </main>
-          }
-        />
-      </Routes>
+      <main className="flex-1">
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route
+            path="/rides"
+            element={
+              <div className="max-w-3xl mx-auto p-6">
+                <FindRide />
+              </div>
+            }
+          />
+          <Route
+            path="/create"
+            element={
+              <div className="max-w-3xl mx-auto p-6">
+                <CreateRide user={user} />
+              </div>
+            }
+          />
+          <Route
+            path="/myrides"
+            element={
+              <div className="max-w-3xl mx-auto p-6">
+                <MyRides user={user} />
+              </div>
+            }
+          />
+          <Route
+            path="/map"
+            element={
+              <div className="max-w-5xl mx-auto p-6">
+                <MapView />
+              </div>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <div className="max-w-3xl mx-auto p-6">
+                <Login setUser={setUser} />
+              </div>
+            }
+          />
+        </Routes>
+      </main>
     </div>
   );
 }

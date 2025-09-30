@@ -1,8 +1,10 @@
 const sqlite3 = require("sqlite3").verbose();
+const path = require("path");
 
-// Create or open a database file called rides.db
-const db = new sqlite3.Database("./rides.db");
+const dbPath = path.resolve(__dirname, "rides.db");
+const db = new sqlite3.Database(dbPath);
 
+// Initialize schema
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS rides (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -10,7 +12,12 @@ db.serialize(() => {
     destination TEXT,
     time TEXT,
     driver TEXT,
-    seats_left INTEGER
+    seats_left INTEGER,
+    origin_lat REAL,
+    origin_lng REAL,
+    destination_lat REAL,
+    destination_lng REAL,
+    route_polyline TEXT
   )`);
 });
 
